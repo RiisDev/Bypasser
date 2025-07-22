@@ -1,0 +1,146 @@
+﻿@page "/{*E}"
+@code{[Parameter] public string? E { get; set; }}
+@inject NavigationManager Navigation
+@using Bypasser.Components.Layout
+
+<div style="display: flex; justify-content: center; align-items: center; height: 100vh;" >
+    <MudExpansionPanels MultiExpansion="true" Style="max-width: 50%; width: 100%;" Elevation="10">
+        
+        @if (_isLoading)
+        {
+            <Loader LoadingText="@_loadingText"/>
+        }
+        else
+        {
+            <MudExpansionPanel Style="border: rgba(255, 255, 255, .1); border-width: .2px; border-style: solid; color:white; " Disabled="true" HideIcon="true" Expanded="true">
+                <TitleContent>
+                    <MudStack Row="true" Spacing="1">
+                        <MudText Style="color:white;">Requested Url: </MudText>
+                        <MudLink Href="@BaseUrl" Target="_blank">
+                            @BaseUrl
+                        </MudLink>
+                    </MudStack>
+                </TitleContent>
+                <ChildContent>
+                    <MudStack>
+                        <MudDivider Style="color:white;"/>
+                        <MudText>
+                            The resolved url is
+                            <MudLink Href="@_bypassedUrl" Target="_blank">
+                                @_bypassedUrl
+                            </MudLink>
+                        </MudText>
+                        <MudDivider Style="color:white;"/>
+                        <MudText Style="font-weight: bold;" Typo="Typo.h5">
+                            <MudIcon Icon="@Icons.Material.Filled.QrCodeScanner" Color="Color.Info" Size="Size.Medium"/>
+                            Embedded Content
+                        </MudText>
+                        <div style="justify-content: center; align-items: center;max-height:300px;overflow: auto; padding-top:10px;">
+                            <MudGrid Justify="Justify.Center" Spacing="2">
+                                @foreach (Bypass.MediaData mega in MegaLinks)
+                                {
+                                    <MudItem xs="4">
+                                        <MediaLocation Href="@mega.Url" IconSrc="@Assets["icons/mega.ico"]" RootName="@mega.MegaTitle" DirectorySize="@mega.DirectorySize" ImageCount="@mega.ImageCount" VideoCount="@mega.VideoCount"/>
+                                    </MudItem>
+                                }
+                                @foreach (Bypass.MediaData mega in BunkrLinks)
+                                {
+                                    <MudItem xs="4">
+                                        <MediaLocation Href="@mega.Url" IconSrc="@Assets["icons/bunkr.ico"]" RootName="@mega.MegaTitle" DirectorySize="@mega.DirectorySize" ImageCount="@mega.ImageCount" VideoCount="@mega.VideoCount"/>
+                                    </MudItem>
+                                }
+                            </MudGrid>
+                        </div>
+
+                        <MudText Style="font-weight: bold;" Typo="Typo.h5">
+                            <MudIcon Icon="@Icons.Material.Filled.QrCodeScanner" Color="Color.Info" Size="Size.Medium"/>
+                            Extracted Links
+                        </MudText>
+                        <div style="justify-content: center; align-items: center;">
+                            <MudCard Outlined="true" Square="false" Elevation="10">
+                                <MudCardContent style="max-height:250px;overflow: auto;">
+                                    <MudStack>
+                                        <MudDivider Style="color:white;"/>
+                                        @foreach (string link in ExtractedLinks)
+                                        {
+                                            <MudButton Href="@link" Target="_blank" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary" Style="text-transform:none;" FullWidth="true">
+                                                @link
+                                            </MudButton>
+                                        }
+                                    </MudStack>
+                                </MudCardContent>
+                            </MudCard>
+                        </div>
+                    </MudStack>
+                </ChildContent>
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+</div>
+
+
+@code {
+
+    public readonly List<string> ExtractedLinks = [];
+    public readonly List<Bypass.MediaData> MegaLinks = [];
+    public readonly List<Bypass.MediaData> BunkrLinks = [];
+
+    private bool _isLoading = true;
+    private string _loadingText = "Bypassing basepoint...";
+
+    private string BaseUrl => Navigation.Uri;
+    private string? _bypassedUrl;
+
+    private async Task DoBypass()
+    {
+        Uri uri = new(Navigation.Uri);
+        string host = uri.Host;
+        string path = uri.AbsolutePath.TrimStart('/');
+        string query = uri.Query;
+
+        string? cachedUrl = Program.Database.Fetch(Navigation.Uri);
+
+        if (!string.IsNullOrEmpty(cachedUrl))
+        {
+            _bypassedUrl = cachedUrl;
+            return;
+        }
+
+        try
+        {
+            _bypassedUrl = await Bypass.GetBypassData(host, query, path);
+
+            if (string.IsNullOrEmpty(_bypassedUrl))
+                Navigation.NavigateTo($"https://bypass.city/bypass?bypass={Navigation.Uri}", true, true);
+        }
+        catch {/**/}
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        await DoBypass();
+        if (string.IsNullOrEmpty(_bypassedUrl)) { return; }
+
+        Program.Database.InsertOrUpdate(Navigation.Uri, _bypassedUrl);
+
+        _loadingText = "Extracting links...";
+        StateHasChanged();
+        ExtractedLinks.AddRange(await PageParsers.ExtractRentryLinks(_bypassedUrl!));
+
+        _loadingText = "Parsing Mega.nz Links...";
+        StateHasChanged();
+        MegaLinks.AddRange(await DownloadParser.GetMegaData(ExtractedLinks.Where(x=> x.Contains("mega.nz")).ToList()));
+
+        _loadingText = "Parsing Bunkr Links...";
+        StateHasChanged();
+        BunkrLinks.AddRange(await DownloadParser.GetBunkrData(ExtractedLinks.Where(x=> x.Contains("bunkr") && (x.Contains("/a/") || x.Contains("/v/") || x.Contains("/f/"))).ToList()));
+
+        _isLoading = false; 
+        StateHasChanged();
+
+    }
+
+}

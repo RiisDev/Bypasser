@@ -1,0 +1,16 @@
+﻿<MudContainer Class="mt-16 px-8" MaxWidth="MaxWidth.False">
+    <MudCard>
+        <MudCardContent Class="text-center">
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Elevation="24" ContentAlignment="HorizontalAlignment.Center">
+                @LoadingText
+                &nbsp;
+                <MudIcon Icon="@Icons.Material.Outlined.Info" />
+            </MudAlert>
+            <MudProgressLinear Color="Color.Warning" Indeterminate="true" Style="margin: 10px 0 0 0" />
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    [Parameter] public string LoadingText { get; set; } = "Loading...";
+}

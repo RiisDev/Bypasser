@@ -1,0 +1,34 @@
+﻿<div style="justify-content: center; align-items: center;">
+    <MudCard Outlined="true" Square="false" Elevation="10">
+        <MudCardHeader Style="margin-bottom: -20px;">
+            <MudImage Src="@IconSrc" Elevation="25" Class="rounded-lg" Height="20" Width="20" />
+            <MudSpacer/>
+            <div style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                @RootName
+            </div>
+            <MudSpacer />
+            <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" />
+        </MudCardHeader>
+        <MudCardContent>
+            <MudStack>
+                <MudDivider Style="color:white;"/>
+                <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                    <MudChip T="string" Icon="@Icons.Material.Filled.Storage" Variant="Variant.Text" Color="Color.Secondary">@DirectorySize</MudChip>
+                    <MudChip T="string" Style="@(@ImageCount == "0" ? "display:none" : "")" Icon="@Icons.Material.Filled.Image" Variant="Variant.Text" Color="Color.Info">@ImageCount</MudChip>
+                    <MudChip T="string" Style="@(@VideoCount == "0" ? "display:none" : "")" icon="@Icons.Material.Filled.OndemandVideo" Variant="Variant.Text" Color="Color.Success">@VideoCount</MudChip>
+                </MudStack>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Tertiary" Target="_about" Href="@Href" FullWidth="true">OPEN</MudButton>
+            </MudStack>
+        </MudCardContent>
+    </MudCard>
+</div>
+
+@code
+{
+    [Parameter] public required string IconSrc { get; set; }
+    [Parameter] public required string RootName { get; set; }
+    [Parameter] public required string DirectorySize { get; set; }
+    [Parameter] public required string VideoCount { get; set; }
+    [Parameter] public required string ImageCount { get; set; }
+    [Parameter] public required string Href { get; set; }
+}

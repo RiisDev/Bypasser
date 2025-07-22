@@ -1,0 +1,78 @@
+﻿@inherits LayoutComponentBase
+<MudThemeProvider IsDarkMode="true"/>
+
+<MudThemeProvider IsDarkMode="true" Theme="_theme" />
+
+<div id="components-reconnect-modal"></div> @*Make this a proper display, instead of having it disabled?*@
+@Body
+
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteDark = new PaletteDark
+        {
+            White = "rgba(255, 255, 255, 1)",
+            Primary = "rgba(85, 100, 255, 1)", // Soft blue for primary
+            PrimaryContrastText = "rgba(255, 255, 255, 0.9)", // Light text for primary
+            Secondary = "rgba(230, 120, 100, 1)", // Warm secondary color
+            SecondaryContrastText = "rgba(255, 255, 255, 0.9)", // Contrast text for secondary
+            Tertiary = "rgba(100, 200, 255, 1)", // Soft cyan for tertiary
+            TertiaryContrastText = "rgba(255, 255, 255, 0.9)", // Contrast text for tertiary
+            Info = "rgba(30, 150, 250, 1)", // Vivid blue for info
+            InfoContrastText = "rgba(255, 255, 255, 0.9)", // Light text for info
+            Success = "rgba(20, 180, 100, 1)", // Green for success
+            SuccessContrastText = "rgba(255, 255, 255, 0.9)", // Light text for success
+            Warning = "rgba(255, 160, 0, 1)", // Bright yellow-orange for warning
+            WarningContrastText = "rgba(0, 0, 0, 0.85)", // Dark text on warning for clarity
+            Error = "rgba(255, 60, 60, 1)", // Bright red for error
+            ErrorContrastText = "rgba(255, 255, 255, 0.9)", // Light text on error
+            Dark = "rgba(30, 30, 40, 1)", // Dark base background
+            DarkContrastText = "rgba(255, 255, 255, 0.75)", // Light text in dark areas
+            Black = "rgba(10, 10, 15, 1)", // True black for deep background
+            TextPrimary = "rgba(255, 255, 255, 0.9)", // Primary text in white
+            TextSecondary = "rgba(255, 255, 255, 0.7)", // Slightly muted secondary text
+            TextDisabled = "rgba(255, 255, 255, 0.4)", // Disabled text, more faded
+            ActionDefault = "rgba(180, 180, 190, 1)", // Default action button color
+            ActionDisabled = "rgba(255, 255, 255, 0.2)", // Disabled action button color
+            ActionDisabledBackground = "rgba(255, 255, 255, 0.08)", // Background for disabled buttons
+            Background = "rgba(15, 15, 20, 1)", // Dark background for panels and sections
+            BackgroundGray = "rgba(40, 40, 50, 1)", // Dark gray background for certain areas
+            Surface = "rgba(17, 17, 20, 1)", // Slightly lighter surface for cards or inputs
+            DrawerBackground = "rgba(20, 20, 25, 1)", // Drawer with dark background
+            DrawerText = "rgba(255, 255, 255, 0.65)", // Drawer text with less opacity
+            DrawerIcon = "rgba(255, 255, 255, 0.65)", // Icons in the drawer
+            AppbarBackground = "rgba(20, 20, 25, 1)", // Appbar with matching background
+            AppbarText = "rgba(255, 255, 255, 0.85)", // Appbar text with high contrast
+            LinesDefault = "rgba(255, 255, 255, 0.1)", // Default divider line color
+            LinesInputs = "rgba(255, 255, 255, 0.15)", // Lines for inputs with subtle effect
+            TableLines = "rgba(255, 255, 255, 0.1)", // Table line colors
+            TableStriped = "rgba(255, 255, 255, 0.15)", // Striped rows in tables
+            Divider = "rgba(255, 255, 255, 0.1)", // Divider for sections
+            DividerLight = "rgba(255, 255, 255, 0.05)", // Lighter divider
+            Skeleton = "rgba(255, 255, 255, 0.1)", // Skeleton background for loading states
+            PrimaryDarken = "rgb(65, 80, 220)", // Darker primary shade
+            PrimaryLighten = "rgb(115, 130, 255)", // Lighter primary shade
+            SecondaryDarken = "rgb(200, 100, 80)", // Darker secondary shade
+            SecondaryLighten = "rgb(255, 150, 120)", // Lighter secondary shade
+            TertiaryDarken = "rgb(80, 150, 220)", // Darker tertiary shade
+            TertiaryLighten = "rgb(140, 190, 255)", // Lighter tertiary shade
+            InfoDarken = "rgb(20, 130, 220)", // Darker info shade
+            InfoLighten = "rgb(50, 180, 255)", // Lighter info shade
+            SuccessDarken = "rgb(10, 150, 80)", // Darker success shade
+            SuccessLighten = "rgb(20, 220, 140)", // Lighter success shade
+            WarningDarken = "rgb(230, 130, 20)", // Darker warning shade
+            WarningLighten = "rgb(255, 180, 60)", // Lighter warning shade
+            ErrorDarken = "rgb(230, 40, 60)", // Darker error shade
+            ErrorLighten = "rgb(255, 100, 120)", // Lighter error shade
+            DarkDarken = "rgb(5, 5, 10)", // Darker dark shade
+            DarkLighten = "rgb(25, 25, 35)", // Lighter dark shade
+            GrayDefault = "rgba(150, 150, 150, 1)", // Neutral gray for various elements
+            GrayLight = "rgba(180, 180, 180, 1)", // Light gray for subtler areas
+            GrayLighter = "rgba(200, 200, 200, 1)", // Lighter gray for accent elements
+            GrayDark = "rgba(120, 120, 120, 1)", // Darker gray for more emphasis
+            GrayDarker = "rgba(80, 80, 80, 1)", // Very dark gray for specific areas
+            OverlayDark = "rgba(0, 0, 0, 0.7)", // Dark overlay for modals
+            OverlayLight = "rgba(255, 255, 255, 0.3)", // Light overlay for brighter components
+        }
+    };
+}
