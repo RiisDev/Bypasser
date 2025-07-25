@@ -30,7 +30,7 @@
 
   <ItemGroup>
     <Reference Include="MegaApiClient">
-      <HintPath>..\..\..\Downloads\MegaApiClient-hashcash\MegaApiClient\bin\Release\netstandard2.0\MegaApiClient.dll</HintPath>
+      <HintPath>MegaApiClient\MegaApiClient.dll</HintPath>
     </Reference>
   </ItemGroup>
 
