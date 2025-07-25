@@ -12,8 +12,6 @@ namespace Bypasser
 {
     public class Program
     {
-        public static readonly string[] UriToWatch = ["megadropz", "free-content.pro"];
-
         public static Database Database = new();
 
         public static MegaApiClient MegaClient = new();
@@ -26,7 +24,7 @@ namespace Bypasser
             UseCookies = true
         })
         {
-            Timeout = TimeSpan.FromSeconds(10),
+            Timeout = TimeSpan.FromSeconds(30),
             DefaultRequestHeaders =
             {
                 {"User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.91 Safari/537.36 ByPassClient/1.0"},

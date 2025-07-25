@@ -30,8 +30,8 @@ namespace Bypasser.Modules
         {
             string fullUrl = $"https://{host}/{path ?? ""}";
             if (!string.IsNullOrEmpty(query)) fullUrl += query;
-            if (!Program.UriToWatch.Any(host.Contains)) return null;
-            //
+            if (!HostsUrlProvider.GetUrls().Any(host.Contains)) return null;
+
             return await CallApi(fullUrl);
         }
     }
