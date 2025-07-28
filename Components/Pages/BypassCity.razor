@@ -1,14 +1,27 @@
 ﻿@page "/bypass-city/{RequestUrl}/{BypassedUrl}"
 @using Bypasser.Components.Layout
+@inject IJSRuntime Js
 
 <PageTitle>@_loadingText</PageTitle>
 
-<div style="display: flex; justify-content: center; align-items: center; height: 100vh;" >
+<HeadContent>
+    <script>
+            window.copyToClipboard = (text) => {
+            navigator.clipboard.writeText(text).then(() => {
+                console.log("Copied to clipboard");
+            }).catch(err => {
+                console.error("Could not copy text: ", err);
+            });
+        };
+    </script>
+</HeadContent>
+
+<div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
     <MudExpansionPanels MultiExpansion="true" Style="max-width: 50%; width: 100%;" Elevation="10">
-        
+
         @if (_isLoading)
         {
-            <Loader LoadingText="@_loadingText"/>
+            <Loader LoadingText="@_loadingText" />
         }
         else
         {
@@ -23,16 +36,16 @@
                 </TitleContent>
                 <ChildContent>
                     <MudStack>
-                        <MudDivider Style="color:white;"/>
+                        <MudDivider Style="color:white;" />
                         <MudText>
                             The resolved url is
                             <MudLink Href="@BypassedUrl" Target="_blank">
                                 @BypassedUrl
                             </MudLink>
                         </MudText>
-                        <MudDivider Style="color:white;"/>
+                        <MudDivider Style="color:white;" />
                         <MudText Style="font-weight: bold;" Typo="Typo.h5">
-                            <MudIcon Icon="@Icons.Material.Filled.QrCodeScanner" Color="Color.Info" Size="Size.Medium"/>
+                            <MudIcon Icon="@Icons.Material.Filled.QrCodeScanner" Color="Color.Info" Size="Size.Medium" />
                             Embedded Content
                         </MudText>
                         <div style="justify-content: center; align-items: center;max-height:300px;overflow: auto; padding-top:10px;">
@@ -40,13 +53,13 @@
                                 @foreach (Bypass.MediaData mega in MegaLinks)
                                 {
                                     <MudItem xs="4">
-                                        <MediaLocation Href="@mega.Url" IconSrc="@Assets["icons/mega.ico"]" RootName="@mega.MegaTitle" DirectorySize="@mega.DirectorySize" ImageCount="@mega.ImageCount" VideoCount="@mega.VideoCount"/>
+                                        <MediaLocation Href="@mega.Url" IconSrc="@Assets["icons/mega.ico"]" RootName="@mega.MegaTitle" DirectorySize="@mega.DirectorySize" ImageCount="@mega.ImageCount" VideoCount="@mega.VideoCount" />
                                     </MudItem>
                                 }
                                 @foreach (Bypass.MediaData mega in BunkrLinks)
                                 {
                                     <MudItem xs="4">
-                                        <MediaLocation Href="@mega.Url" IconSrc="@Assets["icons/bunkr.ico"]" RootName="@mega.MegaTitle" DirectorySize="@mega.DirectorySize" ImageCount="@mega.ImageCount" VideoCount="@mega.VideoCount"/>
+                                        <MediaLocation Href="@mega.Url" IconSrc="@Assets["icons/bunkr.ico"]" RootName="@mega.MegaTitle" DirectorySize="@mega.DirectorySize" ImageCount="@mega.ImageCount" VideoCount="@mega.VideoCount" />
                                     </MudItem>
                                 }
                                 @foreach (Bypass.MediaData mega in GoFileLinks)
@@ -59,14 +72,18 @@
                         </div>
 
                         <MudText Style="font-weight: bold;" Typo="Typo.h5">
-                            <MudIcon Icon="@Icons.Material.Filled.QrCodeScanner" Color="Color.Info" Size="Size.Medium"/>
+                            <MudIcon Icon="@Icons.Material.Filled.QrCodeScanner" Color="Color.Info" Size="Size.Medium" />
                             Extracted Links
                         </MudText>
                         <div style="justify-content: center; align-items: center;">
                             <MudCard Outlined="true" Square="false" Elevation="10">
                                 <MudCardContent style="max-height:250px;overflow: auto;">
                                     <MudStack>
-                                        <MudDivider Style="color:white;"/>
+                                        <MudDivider Style="color:white;" />
+                                        <MudButton @onclick="CopyLinksToClipboard" Size="Size.Small" Variant="Variant.Filled" Color="Color.Secondary" Style="text-transform:none;" FullWidth="true">
+                                            Copy All Links
+                                        </MudButton>
+                                        <MudDivider Style="color:white;" />
                                         @foreach (string link in ExtractedLinks)
                                         {
                                             <MudButton Href="@link" Target="_blank" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary" Style="text-transform:none;" FullWidth="true">
@@ -83,7 +100,6 @@
         }
     </MudExpansionPanels>
 </div>
-
 
 @code {
 
@@ -144,4 +160,5 @@
 
     }
 
+    private async Task CopyLinksToClipboard() => await Js.InvokeVoidAsync("copyToClipboard", string.Join("\n", ExtractedLinks));
 }

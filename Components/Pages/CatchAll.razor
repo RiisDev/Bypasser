@@ -1,9 +1,22 @@
 ﻿@page "/{*E}"
 @code{[Parameter] public string? E { get; set; }}
 @inject NavigationManager Navigation
+@inject IJSRuntime Js
 @using Bypasser.Components.Layout
 
 <PageTitle>@_loadingText</PageTitle>
+
+<HeadContent>
+    <script>
+            window.copyToClipboard = (text) => {
+            navigator.clipboard.writeText(text).then(() => {
+                console.log("Copied to clipboard");
+            }).catch(err => {
+                console.error("Could not copy text: ", err);
+            });
+        };
+    </script>
+</HeadContent>
 
 <div style="display: flex; justify-content: center; align-items: center; height: 100vh;" >
     <MudExpansionPanels MultiExpansion="true" Style="max-width: 50%; width: 100%;" Elevation="10">
@@ -68,6 +81,10 @@
                             <MudCard Outlined="true" Square="false" Elevation="10">
                                 <MudCardContent style="max-height:250px;overflow: auto;">
                                     <MudStack>
+                                        <MudDivider Style="color:white;"/>
+                                        <MudButton @onclick="CopyLinksToClipboard" Size="Size.Small" Variant="Variant.Filled" Color="Color.Secondary" Style="text-transform:none;" FullWidth="true">
+                                            Copy All Links
+                                        </MudButton>
                                         <MudDivider Style="color:white;"/>
                                         @foreach (string link in ExtractedLinks)
                                         {
@@ -135,6 +152,10 @@
 
         Program.Database.InsertOrUpdate(Navigation.Uri, _bypassedUrl);
 
+        _loadingText = "Extracting links...";
+        StateHasChanged();
+        ExtractedLinks.AddRange(await PageParsers.ExtractRentryLinks(_bypassedUrl!));
+
         if (ExtractedLinks.Any(x => x.Contains("mega.nz")))
         {
             _loadingText = "Parsing Mega.nz Links...";
@@ -162,4 +183,5 @@
 
     }
 
+    private async Task CopyLinksToClipboard() => await Js.InvokeVoidAsync("copyToClipboard", string.Join("\n", ExtractedLinks));
 }
