@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Bypasser.Modules
 {
@@ -53,6 +54,21 @@ namespace Bypasser.Modules
             };
 
             return value * units[unit];
+        }
+
+        public static string ToBase64(this string value) => Convert.ToBase64String(Encoding.ASCII.GetBytes(value))
+            .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+
+        public static string FromBase64(this string input)
+        {
+            string base64 = input.Replace('-', '+').Replace('_', '/');
+            switch (base64.Length % 4)
+            {
+                case 2: base64 += "=="; break;
+                case 3: base64 += "="; break;
+            }
+            return Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+
         }
     }
 }

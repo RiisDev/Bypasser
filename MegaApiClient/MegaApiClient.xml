@@ -124,6 +124,11 @@
             Login requires Two-Factor Authentication
             </summary>
         </member>
+        <member name="F:CG.Web.MegaApiClient.ApiResultCode.HashcashRequired">
+            <summary>
+            Hashcash calculation required
+            </summary>
+        </member>
         <member name="M:CG.Web.MegaApiClient.MegaApiClient.#ctor">
             <summary>
             Instantiate a new <see cref="T:CG.Web.MegaApiClient.MegaApiClient" /> object with default <see cref="T:CG.Web.MegaApiClient.Options"/> and default <see cref="T:CG.Web.MegaApiClient.IWebClient"/>

@@ -1,5 +1,8 @@
 ﻿using CG.Web.MegaApiClient;
+using System.Diagnostics;
 using System.Globalization;
+using System.Net.Http.Headers;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace Bypasser.Modules
@@ -99,6 +102,9 @@ namespace Bypasser.Modules
                 {
                     Bypass.MediaData? parsedData = null;
 
+                    // Black is protected by Cloudflare, so we replace it with the CR version
+                    string linkData = link.Replace("bunkr.black", "bunkr.cr");
+
                     if (link.Contains("/a/")) parsedData = await ParseBunkrAlbum(link);
                     else if (link.Contains("/f/") || link.Contains("/v/")) parsedData = await ParseBunkrFile(link);
 
@@ -170,5 +176,177 @@ namespace Bypasser.Modules
 
             return new Bypass.MediaData(pageTitle, Formatting.FormatBytes(size), imageCount.ToString(), videoCount.ToString(), link);
         }
+
+        private static async Task<GoFileData?> GetGoFileData(string link, string wToken, string authToken)
+        {
+            HttpRequestMessage request = new(HttpMethod.Get, $"https://api.gofile.io/contents/{link[(link.LastIndexOf('/') + 1)..]}?wt={wToken}");
+            request.Headers.TryAddWithoutValidation("Cookie", $"accountToken:{authToken}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
+
+            HttpResponseMessage fileResponse = await Program.Client.SendAsync(request);
+
+            if (!fileResponse.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Failed to retrieve data for link: {link}");
+                Debug.WriteLine($"Status Code: {fileResponse.StatusCode}");
+                Debug.WriteLine(await fileResponse.Content.ReadAsStringAsync());
+                return null;
+            }
+
+            GoFileData? goFileData = await fileResponse.Content.ReadFromJsonAsync<GoFileData>();
+
+            if (goFileData is not null && goFileData.Status == "ok") return goFileData;
+
+            Console.WriteLine($"Failed to parse GoFile data for link: {link}");
+            Debug.WriteLine(await fileResponse.Content.ReadAsStringAsync());
+            return null;
+        }
+
+        private static async Task<List<Bypass.MediaData>> ScrapeGoFileRecursively(string link, string wToken, string authToken)
+        {
+            List<Bypass.MediaData> mediaList = [];
+
+            GoFileData? goFileData = await GetGoFileData(link, wToken, authToken);
+            if (goFileData is null) return mediaList;
+
+            int imageCount = 0;
+            int videoCount = 0;
+
+            IEnumerable<KeyValuePair<string, Child>> files = goFileData.Data.Children.Where(x => x.Value.Type == "file");
+            IEnumerable<KeyValuePair<string, Child>> folders = goFileData.Data.Children.Where(x => x.Value.Type == "folder");
+
+            foreach (KeyValuePair<string, Child> file in files)
+            {
+                if (file.Value.Mimetype is null) continue;
+
+                bool isVideo = file.Value.Mimetype.StartsWith("video");
+                bool isImage = file.Value.Mimetype.StartsWith("image");
+
+                if (isVideo) videoCount++;
+                else if (isImage) imageCount++;
+            }
+
+            mediaList.Add(new Bypass.MediaData(
+                goFileData.Data.Name,
+                Formatting.FormatBytes(double.Parse(goFileData.Data.TotalSize?.ToString() ?? "0")),
+                imageCount.ToString(),
+                videoCount.ToString(),
+                link));
+
+            foreach (KeyValuePair<string, Child> folder in folders)
+            {
+                string folderLink = $"https://gofile.io/d/{folder.Value.Id}";
+                List<Bypass.MediaData> nestedMedia = await ScrapeGoFileRecursively(folderLink, wToken, authToken);
+                mediaList.AddRange(nestedMedia);
+            }
+
+            return mediaList;
+        }
+
+        public static async Task<List<Bypass.MediaData>> ParseGoFileData(List<string>? goFileLinks)
+        {
+            List<Bypass.MediaData> data = [];
+            if (goFileLinks == null || goFileLinks.Count == 0) return data;
+
+            HttpResponseMessage response = await Program.Client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "https://api.gofile.io/accounts"));
+            GoFileAuth? apiData = await response.Content.ReadFromJsonAsync<GoFileAuth>();
+
+            if (apiData is null || apiData.Status != "ok")
+            {
+                Console.WriteLine("Failed to authenticate with GoFile API.");
+                return data;
+            }
+
+            string authToken = apiData.Data.Token;
+            if (string.IsNullOrEmpty(authToken))
+            {
+                Console.WriteLine("Authentication token is empty.");
+                return data;
+            }
+
+            string globalJs = await Program.Client.GetStringAsync("https://gofile.io/dist/js/global.js");
+
+            if (string.IsNullOrEmpty(globalJs))
+            {
+                Console.WriteLine("Failed to retrieve global.js from GoFile.");
+                return data;
+            }
+
+            Match wTokenMatch = Regex.Match(globalJs, @"appdata\.wt\s*=\s*[""']([^""']+)[""']");
+
+            if (!wTokenMatch.Success || wTokenMatch.Groups.Count != 2)
+            {
+                Console.WriteLine("Failed to find wToken in global.js.");
+                return data;
+            }
+
+            string wToken = wTokenMatch.Groups[1].Value;
+
+            foreach (string link in goFileLinks) data.AddRange(await ScrapeGoFileRecursively(link, wToken, authToken));
+
+            return data;
+        }
+
+        #region GoFileRecords
+
+        public record AuthData(
+            [property: JsonPropertyName("id")] string Id,
+            [property: JsonPropertyName("rootFolder")] string RootFolder,
+            [property: JsonPropertyName("tier")] string Tier,
+            [property: JsonPropertyName("token")] string Token
+        );
+
+        public record GoFileAuth(
+            [property: JsonPropertyName("status")] string Status,
+            [property: JsonPropertyName("data")] AuthData Data
+        );
+
+        public record Child(
+            [property: JsonPropertyName("canAccess")] bool? CanAccess,
+            [property: JsonPropertyName("id")] string Id,
+            [property: JsonPropertyName("parentFolder")] string? ParentFolder,
+            [property: JsonPropertyName("type")] string Type,
+            [property: JsonPropertyName("name")] string Name,
+            [property: JsonPropertyName("createTime")] int? CreateTime,
+            [property: JsonPropertyName("modTime")] int? ModTime,
+            [property: JsonPropertyName("size")] int? Size,
+            [property: JsonPropertyName("downloadCount")] int? DownloadCount,
+            [property: JsonPropertyName("md5")] string? Md5,
+            [property: JsonPropertyName("mimetype")] string? Mimetype,
+            [property: JsonPropertyName("servers")] IReadOnlyList<string>? Servers,
+            [property: JsonPropertyName("serverSelected")] string? ServerSelected,
+            [property: JsonPropertyName("link")] string? Link,
+            [property: JsonPropertyName("thumbnail")] string? Thumbnail,
+            [property: JsonPropertyName("code")] string? Code,
+            [property: JsonPropertyName("public")] bool? Public,
+            [property: JsonPropertyName("totalDownloadCount")] int? TotalDownloadCount,
+            [property: JsonPropertyName("totalSize")] int? TotalSize,
+            [property: JsonPropertyName("childrenCount")] int? ChildrenCount
+        );
+
+        public record BodyData(
+            [property: JsonPropertyName("canAccess")] bool? CanAccess,
+            [property: JsonPropertyName("id")] string Id,
+            [property: JsonPropertyName("type")] string Type,
+            [property: JsonPropertyName("name")] string Name,
+            [property: JsonPropertyName("createTime")] int? CreateTime,
+            [property: JsonPropertyName("modTime")] int? ModTime,
+            [property: JsonPropertyName("code")] string Code,
+            [property: JsonPropertyName("isRoot")] bool? IsRoot,
+            [property: JsonPropertyName("public")] bool? Public,
+            [property: JsonPropertyName("totalDownloadCount")] int? TotalDownloadCount,
+            [property: JsonPropertyName("totalSize")] int? TotalSize,
+            [property: JsonPropertyName("childrenCount")] int? ChildrenCount, 
+            [property: JsonPropertyName("children")] Dictionary<string, Child> Children
+        );
+
+        public record GoFileData(
+            [property: JsonPropertyName("status")] string Status,
+            [property: JsonPropertyName("data")] BodyData Data,
+            [property: JsonPropertyName("metadata")] object Metadata
+        );
+
+
+        #endregion
     }
 }

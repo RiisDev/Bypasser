@@ -35,17 +35,17 @@ namespace Bypasser
         public static void Main(string[] args)
         {
             _ = new EnvService();
-            
+
             if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BYPASS_API_KEY")))
                 throw new InvalidOperationException("BYPASS_API_KEY environment variable is not set.");
-
+                
             MegaClient.ApiRequestFailed += (er, failed) =>
             {
                 Debug.WriteLine(failed);
             };
             
             MegaClient.LoginAnonymousAsync().Wait();
-
+            
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllers();

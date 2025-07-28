@@ -1,6 +1,4 @@
-﻿@page "/{*E}"
-@code{[Parameter] public string? E { get; set; }}
-@inject NavigationManager Navigation
+﻿@page "/bypass-city/{RequestUrl}/{BypassedUrl}"
 @using Bypasser.Components.Layout
 
 <PageTitle>@_loadingText</PageTitle>
@@ -28,8 +26,8 @@
                         <MudDivider Style="color:white;"/>
                         <MudText>
                             The resolved url is
-                            <MudLink Href="@_bypassedUrl" Target="_blank">
-                                @_bypassedUrl
+                            <MudLink Href="@BypassedUrl" Target="_blank">
+                                @BypassedUrl
                             </MudLink>
                         </MudText>
                         <MudDivider Style="color:white;"/>
@@ -95,58 +93,42 @@
     public readonly List<Bypass.MediaData> GoFileLinks = [];
 
     private bool _isLoading = true;
-    private string _loadingText = "Bypassing basepoint...";
+    
+    private string _loadingText = "Parsing result Url...";
 
-    private string BaseUrl => Navigation.Uri;
-    private string? _bypassedUrl;
+    private string BaseUrl => RequestUrl;
 
-    private async Task DoBypass()
-    {
-        Uri uri = new(Navigation.Uri);
-        string host = uri.Host;
-        string path = uri.AbsolutePath.TrimStart('/');
-        string query = uri.Query;
-
-        string? cachedUrl = Program.Database.Fetch(Navigation.Uri);
-
-        if (!string.IsNullOrEmpty(cachedUrl))
-        {
-            _bypassedUrl = cachedUrl;
-            return;
-        }
-
-        try
-        {
-            _bypassedUrl = await Bypass.GetBypassData(host, query, path);
-
-            if (string.IsNullOrEmpty(_bypassedUrl))
-                Navigation.NavigateTo($"https://bypass.city/bypass?bypass={Navigation.Uri}", true, true);
-        }
-        catch {/**/}
-    }
-
+    [Parameter] public required string BypassedUrl { get; set; }
+    [Parameter] public required string RequestUrl { get; set; }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
-        await DoBypass();
-        if (string.IsNullOrEmpty(_bypassedUrl)) { return; }
+        if (string.IsNullOrEmpty(BypassedUrl)) { return; }
+        if (string.IsNullOrEmpty(RequestUrl)) { return; }
 
-        Program.Database.InsertOrUpdate(Navigation.Uri, _bypassedUrl);
+        RequestUrl = RequestUrl.FromBase64();
+        BypassedUrl = BypassedUrl.FromBase64();
+        
+        Program.Database.InsertOrUpdate(RequestUrl, BypassedUrl);
 
-        if (ExtractedLinks.Any(x => x.Contains("mega.nz")))
+        _loadingText = "Extracting links...";
+        StateHasChanged();
+        ExtractedLinks.AddRange(await PageParsers.ExtractRentryLinks(BypassedUrl));
+
+        if (ExtractedLinks.Any(x=> x.Contains("mega.nz")))
         {
             _loadingText = "Parsing Mega.nz Links...";
             StateHasChanged();
-            MegaLinks.AddRange(await DownloadParser.GetMegaData(ExtractedLinks.Where(x => x.Contains("mega.nz")).ToList()));
+            MegaLinks.AddRange(await DownloadParser.GetMegaData(ExtractedLinks.Where(x=> x.Contains("mega.nz")).ToList()));    
         }
 
         if (ExtractedLinks.Any(x => x.Contains("bunkr") && (x.Contains("/a/") || x.Contains("/v/") || x.Contains("/f/"))))
         {
             _loadingText = "Parsing Bunkr Links...";
             StateHasChanged();
-            BunkrLinks.AddRange(await DownloadParser.GetBunkrData(ExtractedLinks.Where(x => x.Contains("bunkr") && (x.Contains("/a/") || x.Contains("/v/") || x.Contains("/f/"))).ToList()));
+            BunkrLinks.AddRange(await DownloadParser.GetBunkrData(ExtractedLinks.Where(x=> x.Contains("bunkr") && (x.Contains("/a/") || x.Contains("/v/") || x.Contains("/f/"))).ToList()));
         }
 
         if (ExtractedLinks.Any(x => x.Contains("gofile.io")))
