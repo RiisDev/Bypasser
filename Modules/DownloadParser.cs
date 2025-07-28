@@ -94,28 +94,36 @@ namespace Bypasser.Modules
         public static async Task<List<Bypass.MediaData>> GetBunkrData(List<string>? bunkrLinks)
         {
             List<Bypass.MediaData> data = [];
-            if (bunkrLinks == null || bunkrLinks.Count == 0) return data;
-
-            foreach (string link in bunkrLinks)
+            try
             {
-                try
+                if (bunkrLinks == null || bunkrLinks.Count == 0) return data;
+
+                foreach (string link in bunkrLinks)
                 {
-                    Bypass.MediaData? parsedData = null;
+                    try
+                    {
+                        Bypass.MediaData? parsedData = null;
 
-                    // Black is protected by Cloudflare, so we replace it with the CR version
-                    string linkData = link.Replace("bunkr.black", "bunkr.cr");
+                        // Black is protected by Cloudflare, so we replace it with the CR version
+                        string linkData = link.Replace("bunkr.black", "bunkr.cr");
 
-                    if (link.Contains("/a/")) parsedData = await ParseBunkrAlbum(link);
-                    else if (link.Contains("/f/") || link.Contains("/v/")) parsedData = await ParseBunkrFile(link);
+                        if (linkData.Contains("/a/")) parsedData = await ParseBunkrAlbum(linkData);
+                        else if (linkData.Contains("/f/") || linkData.Contains("/v/"))
+                            parsedData = await ParseBunkrFile(linkData);
 
-                    if (parsedData is null) continue;
-                    data.Add(parsedData);
+                        if (parsedData is null) continue;
+                        data.Add(parsedData);
+                    }
+                    catch
+                    {
+                        Console.WriteLine($"Failed Link: {link}");
+                    }
+
                 }
-                catch
-                {
-                    Console.WriteLine($"Failed Link: {link}");
-                }
-
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error while parsing Bunkr data: {ex.Message}");
             }
 
             return data;
@@ -246,43 +254,62 @@ namespace Bypasser.Modules
         public static async Task<List<Bypass.MediaData>> ParseGoFileData(List<string>? goFileLinks)
         {
             List<Bypass.MediaData> data = [];
-            if (goFileLinks == null || goFileLinks.Count == 0) return data;
-
-            HttpResponseMessage response = await Program.Client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "https://api.gofile.io/accounts"));
-            GoFileAuth? apiData = await response.Content.ReadFromJsonAsync<GoFileAuth>();
-
-            if (apiData is null || apiData.Status != "ok")
+            try
             {
-                Console.WriteLine("Failed to authenticate with GoFile API.");
-                return data;
-            }
+                if (goFileLinks == null || goFileLinks.Count == 0) return data;
 
-            string authToken = apiData.Data.Token;
-            if (string.IsNullOrEmpty(authToken))
+                HttpResponseMessage response =
+                    await Program.Client.SendAsync(new HttpRequestMessage(HttpMethod.Post,
+                        "https://api.gofile.io/accounts"));
+
+                GoFileAuth? apiData;
+                try
+                {
+                    apiData = await response.Content.ReadFromJsonAsync<GoFileAuth>();
+                }
+                catch
+                {
+                    return data;
+                }
+
+                if (apiData is null || apiData.Status != "ok")
+                {
+                    Console.WriteLine("Failed to authenticate with GoFile API.");
+                    return data;
+                }
+
+                string authToken = apiData.Data.Token;
+                if (string.IsNullOrEmpty(authToken))
+                {
+                    Console.WriteLine("Authentication token is empty.");
+                    return data;
+                }
+
+                string globalJs = await Program.Client.GetStringAsync("https://gofile.io/dist/js/global.js");
+
+                if (string.IsNullOrEmpty(globalJs))
+                {
+                    Console.WriteLine("Failed to retrieve global.js from GoFile.");
+                    return data;
+                }
+
+                Match wTokenMatch = Regex.Match(globalJs, @"appdata\.wt\s*=\s*[""']([^""']+)[""']");
+
+                if (!wTokenMatch.Success || wTokenMatch.Groups.Count != 2)
+                {
+                    Console.WriteLine("Failed to find wToken in global.js.");
+                    return data;
+                }
+
+                string wToken = wTokenMatch.Groups[1].Value;
+
+                foreach (string link in goFileLinks)
+                    data.AddRange(await ScrapeGoFileRecursively(link, wToken, authToken));
+            }
+            catch (Exception ex)
             {
-                Console.WriteLine("Authentication token is empty.");
-                return data;
+                Console.WriteLine($"Error while parsing GoFile data: {ex.Message}");
             }
-
-            string globalJs = await Program.Client.GetStringAsync("https://gofile.io/dist/js/global.js");
-
-            if (string.IsNullOrEmpty(globalJs))
-            {
-                Console.WriteLine("Failed to retrieve global.js from GoFile.");
-                return data;
-            }
-
-            Match wTokenMatch = Regex.Match(globalJs, @"appdata\.wt\s*=\s*[""']([^""']+)[""']");
-
-            if (!wTokenMatch.Success || wTokenMatch.Groups.Count != 2)
-            {
-                Console.WriteLine("Failed to find wToken in global.js.");
-                return data;
-            }
-
-            string wToken = wTokenMatch.Groups[1].Value;
-
-            foreach (string link in goFileLinks) data.AddRange(await ScrapeGoFileRecursively(link, wToken, authToken));
 
             return data;
         }
@@ -307,10 +334,10 @@ namespace Bypasser.Modules
             [property: JsonPropertyName("parentFolder")] string? ParentFolder,
             [property: JsonPropertyName("type")] string Type,
             [property: JsonPropertyName("name")] string Name,
-            [property: JsonPropertyName("createTime")] int? CreateTime,
-            [property: JsonPropertyName("modTime")] int? ModTime,
-            [property: JsonPropertyName("size")] int? Size,
-            [property: JsonPropertyName("downloadCount")] int? DownloadCount,
+            [property: JsonPropertyName("createTime")] long? CreateTime,
+            [property: JsonPropertyName("modTime")] long? ModTime,
+            [property: JsonPropertyName("size")] long? Size,
+            [property: JsonPropertyName("downloadCount")] long? DownloadCount,
             [property: JsonPropertyName("md5")] string? Md5,
             [property: JsonPropertyName("mimetype")] string? Mimetype,
             [property: JsonPropertyName("servers")] IReadOnlyList<string>? Servers,
@@ -319,9 +346,9 @@ namespace Bypasser.Modules
             [property: JsonPropertyName("thumbnail")] string? Thumbnail,
             [property: JsonPropertyName("code")] string? Code,
             [property: JsonPropertyName("public")] bool? Public,
-            [property: JsonPropertyName("totalDownloadCount")] int? TotalDownloadCount,
-            [property: JsonPropertyName("totalSize")] int? TotalSize,
-            [property: JsonPropertyName("childrenCount")] int? ChildrenCount
+            [property: JsonPropertyName("totalDownloadCount")] long? TotalDownloadCount,
+            [property: JsonPropertyName("totalSize")] long? TotalSize,
+            [property: JsonPropertyName("childrenCount")] long? ChildrenCount
         );
 
         public record BodyData(
@@ -329,14 +356,14 @@ namespace Bypasser.Modules
             [property: JsonPropertyName("id")] string Id,
             [property: JsonPropertyName("type")] string Type,
             [property: JsonPropertyName("name")] string Name,
-            [property: JsonPropertyName("createTime")] int? CreateTime,
-            [property: JsonPropertyName("modTime")] int? ModTime,
+            [property: JsonPropertyName("createTime")] long? CreateTime,
+            [property: JsonPropertyName("modTime")] long? ModTime,
             [property: JsonPropertyName("code")] string Code,
             [property: JsonPropertyName("isRoot")] bool? IsRoot,
             [property: JsonPropertyName("public")] bool? Public,
-            [property: JsonPropertyName("totalDownloadCount")] int? TotalDownloadCount,
-            [property: JsonPropertyName("totalSize")] int? TotalSize,
-            [property: JsonPropertyName("childrenCount")] int? ChildrenCount, 
+            [property: JsonPropertyName("totalDownloadCount")] long? TotalDownloadCount,
+            [property: JsonPropertyName("totalSize")] long? TotalSize,
+            [property: JsonPropertyName("childrenCount")] long? ChildrenCount, 
             [property: JsonPropertyName("children")] Dictionary<string, Child> Children
         );
 

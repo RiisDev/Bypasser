@@ -15,11 +15,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Remove="MegaApiClient\MegaApiClient.deps.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="cert.pfx" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="cert.pfx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="MegaApiClient\MegaApiClient.deps.json" />
   </ItemGroup>
 
   <ItemGroup>
