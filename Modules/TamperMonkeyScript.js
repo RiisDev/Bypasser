@@ -43,24 +43,10 @@
         }
     }
 
-    function observePage() {
-        const observer = new MutationObserver(() => {
-            if (document.title.includes("Bypass complete")) {
-                extractResolvedUrl();
-            }
-        });
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true,
-        });
-    }
-
-    window.addEventListener("load", () => {
-        observePage();
-
+    let int = setInterval(function() {
         if (document.title.includes("Bypass complete")) {
             extractResolvedUrl();
         }
-    });
+    }, 250)
+
 })();
