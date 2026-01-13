@@ -139,7 +139,7 @@
             if (string.IsNullOrEmpty(_bypassedUrl))
                 Navigation.NavigateTo($"https://bypass.city/bypass?bypass={Navigation.Uri}", true, true);
         }
-        catch {/**/}
+        catch (Exception ex) { Log(ex.Message, State.Error); }
     }
 
 
@@ -154,33 +154,38 @@
 
         _loadingText = "Extracting links...";
         StateHasChanged();
-        ExtractedLinks.AddRange(await PageParsers.ExtractRentryLinks(_bypassedUrl!));
-
-        if (ExtractedLinks.Any(x => x.Contains("mega.nz")))
+        try
         {
-            _loadingText = "Parsing Mega.nz Links...";
-            StateHasChanged();
-            MegaLinks.AddRange(await DownloadParser.GetMegaData(ExtractedLinks.Where(x => x.Contains("mega.nz")).ToList()));
-        }
+            ExtractedLinks.AddRange(await PageParsers.ExtractRentryLinks(_bypassedUrl!));
 
-        if (ExtractedLinks.Any(x => x.Contains("bunkr") && (x.Contains("/a/") || x.Contains("/v/") || x.Contains("/f/"))))
+            if (ExtractedLinks.Any(x => x.Contains("mega.nz")))
+            {
+                _loadingText = "Parsing Mega.nz Links...";
+                StateHasChanged();
+                MegaLinks.AddRange(await DownloadParser.GetMegaData(ExtractedLinks.Where(x => x.Contains("mega.nz")).ToList()));
+            }
+
+            if (ExtractedLinks.Any(x => x.Contains("bunkr") && (x.Contains("/a/") || x.Contains("/v/") || x.Contains("/f/"))))
+            {
+                _loadingText = "Parsing Bunkr Links...";
+                StateHasChanged();
+                BunkrLinks.AddRange(await DownloadParser.GetBunkrData(ExtractedLinks.Where(x => x.Contains("bunkr") && (x.Contains("/a/") || x.Contains("/v/") || x.Contains("/f/"))).ToList()));
+            }
+
+            if (ExtractedLinks.Any(x => x.Contains("gofile.io")))
+            {
+                _loadingText = "Parsing Gofile.io Links...";
+                StateHasChanged();
+                GoFileLinks.AddRange(await DownloadParser.ParseGoFileData(ExtractedLinks.Where(x => x.Contains("gofile.io")).ToList()));
+            }
+        }
+        catch (Exception ex) { Log(ex.Message, State.Error); }
+        finally
         {
-            _loadingText = "Parsing Bunkr Links...";
+            _isLoading = false;
+            _loadingText = "Completed!";
             StateHasChanged();
-            BunkrLinks.AddRange(await DownloadParser.GetBunkrData(ExtractedLinks.Where(x => x.Contains("bunkr") && (x.Contains("/a/") || x.Contains("/v/") || x.Contains("/f/"))).ToList()));
         }
-
-        if (ExtractedLinks.Any(x => x.Contains("gofile.io")))
-        {
-            _loadingText = "Parsing Gofile.io Links...";
-            StateHasChanged();
-            GoFileLinks.AddRange(await DownloadParser.ParseGoFileData(ExtractedLinks.Where(x => x.Contains("gofile.io")).ToList()));
-        }
-
-        _isLoading = false;
-        _loadingText = "Completed!";
-        StateHasChanged();
-
     }
 
     private async Task CopyLinksToClipboard() => await Js.InvokeVoidAsync("copyToClipboard", string.Join("\n", ExtractedLinks));

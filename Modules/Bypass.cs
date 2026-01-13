@@ -14,14 +14,18 @@ namespace Bypasser.Modules
                 HttpResponseMessage response = await Program.Client.GetAsync($"https://api.bypass.vip/premium/bypass?url={HttpUtility.UrlEncode(url)}");
 
                 string data = await response.Content.ReadAsStringAsync();
-                Debug.WriteLine($"Bypass API Response: {data}");
+
                 if (response.IsSuccessStatusCode)
                 {
                     Dictionary<string, string>? json = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
                     if (json != null && json.TryGetValue("result", out string? result)) return result;
                 }
+                else
+                {
+                    Log($"Failed request: ({response.StatusCode}) {data}");
+                }
             }
-            catch {/**/}
+            catch (Exception ex) { Log(ex.ToString());}
 
             return null;
         }

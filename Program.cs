@@ -1,27 +1,67 @@
-using System.Diagnostics;
+global using static Bypasser.Logging;
 using Bypasser.Components;
-using CG.Web.MegaApiClient;
-using MudBlazor.Services;
-using System.Net;
-using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
 using Bypasser.Modules;
-using SQLitePCL;
+using CG.Web.MegaApiClient;
+using Microsoft.AspNetCore.Connections;
+using MudBlazor.Services;
+using System;
+using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography.X509Certificates;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Bypasser
 {
+	public static class Logging
+	{
+		private static readonly Lock LogLock = new();
+
+		public enum State
+		{
+            Error,
+            Warning,
+            Info
+		}
+
+		public static void Log(string message, State state = State.Error, [CallerMemberName] string caller = "", [CallerFilePath] string callerFilePath = "")
+		{
+			lock (LogLock)
+			{
+				string className = Path.GetFileNameWithoutExtension(callerFilePath);
+				string data = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{state}] [{className}.{caller}] {message}\n";
+                Debug.WriteLine(data);
+                File.AppendAllText($"{AppDomain.CurrentDomain.BaseDirectory}\\log.txt", data);
+
+                Console.ForegroundColor = state switch
+                {
+	                State.Error => ConsoleColor.Red,
+	                State.Warning => ConsoleColor.Yellow,
+	                State.Info => ConsoleColor.Green,
+	                _ => Console.ForegroundColor
+                };
+                Console.WriteLine(data);
+                Console.ResetColor();
+			}
+		}
+	}
+
     public class Program
     {
         public static Database Database = new();
-
-        public static MegaApiClient MegaClient = new();
+		
+        public static MegaApiClient? MegaClient { get; set; }
 
         public static HttpClient Client = new(new HttpClientHandler
         {
             AllowAutoRedirect = true,
             AutomaticDecompression = DecompressionMethods.All,
             ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
-            UseCookies = true
+            UseCookies = true,
+            UseProxy = false,
+            Proxy = null
         })
         {
             Timeout = TimeSpan.FromSeconds(30),
@@ -33,19 +73,40 @@ namespace Bypasser
         };
 
         public static void Main(string[] args)
-        {
-            _ = new EnvService();
+		{
+			_ = new EnvService();
 
-            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BYPASS_API_KEY")))
-                throw new InvalidOperationException("BYPASS_API_KEY environment variable is not set.");
-                
-            MegaClient.ApiRequestFailed += (er, failed) =>
-            {
-                Debug.WriteLine(failed);
-            };
-            
-            MegaClient.LoginAnonymousAsync().Wait();
-            
+            Log("Starting...", State.Info);
+
+            Log("Error Handlers...", State.Info);
+            AppDomain.CurrentDomain.UnhandledException += (_, exceptionEventArgs) => Log(exceptionEventArgs.ExceptionObject.ToString() ?? "Unknown error");
+			TaskScheduler.UnobservedTaskException += (_, eventArgs) => Log(eventArgs.Exception.ToString(), State.Error, eventArgs.Exception.Source ?? "");
+
+            Log("Client Bindings...", State.Info);
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BYPASS_API_KEY"))) { Log("Missing BYPASS_API_KEY from ENV"); return; }
+
+			try
+			{
+				MegaApiClient tempClient = new ();
+				tempClient.ApiRequestFailed += (_, failed) => Log(failed.ResponseJson);
+
+				Log("Logging in...", State.Info);
+
+				Task loginTask = tempClient.LoginAnonymousAsync();
+				Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(15));
+
+				Task completedTask = Task.WhenAny(loginTask, timeoutTask).GetAwaiter().GetResult();
+
+				if (completedTask == loginTask) { loginTask.GetAwaiter().GetResult(); MegaClient = tempClient; Log("Logged in to MEGA successfully.", State.Info); }
+				else { Log("MEGA login timed out after 30 seconds.", State.Warning); MegaClient = null; }
+			}
+			catch (Exception ex)
+			{
+				Log(ex.ToString());
+				MegaClient = null;
+			}
+
+			Log("WebAppBuilder...", State.Info);
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllers();
@@ -66,8 +127,9 @@ namespace Bypasser
             builder.Services.AddMudServices();
 
 
-            WebApplication app = builder.Build();
-
+            Log("App Building...", State.Info);
+			WebApplication app = builder.Build();
+            
             if (!app.Environment.IsDevelopment())
             {
                 app.UseExceptionHandler("/Error");
@@ -84,7 +146,8 @@ namespace Bypasser
             app.MapRazorComponents<App>()
                 .AddInteractiveServerRenderMode();
 
-            app.Run();
+            Log("App Running...", State.Info);
+			app.Run();
         }
 
         private static X509Certificate2 LoadCertificateFromResource(string resourceName, string password)

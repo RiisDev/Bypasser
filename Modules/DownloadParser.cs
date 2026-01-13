@@ -53,6 +53,12 @@ namespace Bypasser.Modules
             List<Bypass.MediaData> data = [];
             if (megaLinks == null || megaLinks.Count == 0) return data;
 
+            if (Program.MegaClient is null)
+            {
+                data.AddRange(megaLinks.Select(x=> new Bypass.MediaData("Error", "-1", "-1", "-1", x)));
+	            return data;
+            }
+
             foreach (string link in megaLinks)
             {
                 try
@@ -83,10 +89,7 @@ namespace Bypasser.Modules
                     data.Add(new Bypass.MediaData(rootNode, Formatting.FormatBytes(double.Parse(size.ToString())), imageCount.ToString(), videoCount.ToString(), link));
 
                 }
-                catch
-                {
-                    Console.WriteLine($"Failed link: {link}");
-                }
+                catch (Exception ex) { Log($"Failed Link: {link} |||| {ex}"); }
             }
             return data;
         }
@@ -116,14 +119,14 @@ namespace Bypasser.Modules
                     }
                     catch
                     {
-                        Console.WriteLine($"Failed Link: {link}");
-                    }
+                        Log($"Failed Link: {link}");
+					}
 
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error while parsing Bunkr data: {ex.Message}");
+                Log($"Error while parsing Bunkr data: {ex.Message}");
             }
 
             return data;
@@ -195,9 +198,7 @@ namespace Bypasser.Modules
 
             if (!fileResponse.IsSuccessStatusCode)
             {
-                Console.WriteLine($"Failed to retrieve data for link: {link}");
-                Debug.WriteLine($"Status Code: {fileResponse.StatusCode}");
-                Debug.WriteLine(await fileResponse.Content.ReadAsStringAsync());
+                Log($"Failed to retrieve data for: {link}\nStatus: {fileResponse.StatusCode}\n{await fileResponse.Content.ReadAsStringAsync()}");
                 return null;
             }
 
@@ -205,8 +206,7 @@ namespace Bypasser.Modules
 
             if (goFileData is not null && goFileData.Status == "ok") return goFileData;
 
-            Console.WriteLine($"Failed to parse GoFile data for link: {link}");
-            Debug.WriteLine(await fileResponse.Content.ReadAsStringAsync());
+            Log($"Failed to parse GoFile data for link: {link}\n{await fileResponse.Content.ReadAsStringAsync()}");
             return null;
         }
 
@@ -272,34 +272,20 @@ namespace Bypasser.Modules
                     return data;
                 }
 
-                if (apiData is null || apiData.Status != "ok")
-                {
-                    Console.WriteLine("Failed to authenticate with GoFile API.");
-                    return data;
-                }
+                if (apiData is null || apiData.Status != "ok") { Log("Failed to authenticate with GoFile API."); return data; }
 
                 string authToken = apiData.Data.Token;
-                if (string.IsNullOrEmpty(authToken))
-                {
-                    Console.WriteLine("Authentication token is empty.");
-                    return data;
-                }
+                if (string.IsNullOrEmpty(authToken)) { Log("Authentication token is empty."); return data; }
 
                 string globalJs = await Program.Client.GetStringAsync("https://gofile.io/dist/js/global.js");
 
-                if (string.IsNullOrEmpty(globalJs))
-                {
-                    Console.WriteLine("Failed to retrieve global.js from GoFile.");
-                    return data;
-                }
+                if (string.IsNullOrEmpty(globalJs)) 
+                { Log("Failed to retrieve global.js from GoFile."); return data; }
 
                 Match wTokenMatch = Regex.Match(globalJs, @"appdata\.wt\s*=\s*[""']([^""']+)[""']");
 
                 if (!wTokenMatch.Success || wTokenMatch.Groups.Count != 2)
-                {
-                    Console.WriteLine("Failed to find wToken in global.js.");
-                    return data;
-                }
+                { Log("Failed to find wToken in global.js."); return data; }
 
                 string wToken = wTokenMatch.Groups[1].Value;
 
@@ -308,7 +294,7 @@ namespace Bypasser.Modules
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error while parsing GoFile data: {ex.Message}");
+                Log($"Error while parsing GoFile data: {ex.Message}");
             }
 
             return data;
