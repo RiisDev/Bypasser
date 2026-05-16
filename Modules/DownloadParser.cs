@@ -78,9 +78,9 @@ namespace Bypasser.Modules
 
                     foreach (INode node in enumerable)
                     {
-                        string nodeName = node.Name.ToLowerInvariant(); // Make comparison case-insensitive
+	                    string nodeName = node?.Name is null ? "root" : node.Name.ToLowerInvariant();
 
-                        if (VideoExtensions.Any(nodeName.EndsWith)) videoCount++;
+	                    if (VideoExtensions.Any(nodeName.EndsWith)) videoCount++;
                         else if (ImageExtensions.Any(nodeName.EndsWith)) imageCount++;
 
                         size += node.Size;

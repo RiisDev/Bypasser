@@ -135,7 +135,7 @@
         StateHasChanged();
         try
         {
-            ExtractedLinks.AddRange(await PageParsers.ExtractRentryLinks(BypassedUrl));
+            ExtractedLinks.AddRange(await PageParsers.ExtractLinks(BypassedUrl));
 
             if (ExtractedLinks.Any(x=> x.Contains("mega.nz")))
             {
